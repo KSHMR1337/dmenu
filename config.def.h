@@ -8,7 +8,7 @@ static const unsigned int alpha = 0xff;     /* Amount of opacity. 0xff is opaque
 static const int user_bh = 6;               /* add an defined amount of pixels to the bar height */
 
 static const char *fonts[] = {
-	"Hack Nerd Font:pixelsize=15:antialias=true:autohint=true"
+	"Hack Nerd Font Mono:pixelsize=15:antialias=true:autohint=true"
 };
 static const char *prompt      = NULL;      /* -p  option; prompt to the left of input field */
 static const char *colors[SchemeLast][2] = {
