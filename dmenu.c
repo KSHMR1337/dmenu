@@ -77,8 +77,9 @@ static Colormap cmap;
 
 #include "config.h"
 
-static int (*fstrncmp)(const char *, const char *, size_t) = strncmp;
-static char *(*fstrstr)(const char *, const char *) = strstr;
+static char *cistrstr(const char *s, const char *sub);
+static int (*fstrncmp)(const char *, const char *, size_t) = strncasecmp;
+static char *(*fstrstr)(const char *, const char *) = cistrstr;
 static void xinitvisual();
 
 static unsigned int textw_clamp(const char *str, unsigned int n) {
@@ -455,6 +456,8 @@ static void keypress(XKeyEvent *ev) {
   int len;
   KeySym ksym = NoSymbol;
   Status status;
+  int i, offscreen = 0;
+  struct item *tmpsel;
 
   len = XmbLookupString(xic, ev, buf, sizeof buf, &ksym, &status);
   switch (status) {
@@ -623,6 +626,27 @@ static void keypress(XKeyEvent *ev) {
     calcoffsets();
     break;
   case XK_Left:
+    if (columns > 1) {
+      if (!sel)
+        return;
+      tmpsel = sel;
+      for (i = 0; i < lines; i++) {
+        if (!tmpsel->left || tmpsel->left->right != tmpsel) {
+          if (offscreen)
+            break;
+          return;
+        }
+        if (tmpsel == curr)
+          offscreen = 1;
+        tmpsel = tmpsel->left;
+      }
+      sel = tmpsel;
+      if (offscreen) {
+        curr = prev;
+        calcoffsets();
+      }
+      break;
+    }
   case XK_KP_Left:
     if (cursor > 0 && (!sel || !sel->left || lines > 0)) {
       cursor = nextrune(-1);
@@ -663,6 +687,27 @@ static void keypress(XKeyEvent *ev) {
       sel->out = 1;
     break;
   case XK_Right:
+    if (columns > 1) {
+      if (!sel)
+        return;
+      tmpsel = sel;
+      for (i = 0; i < lines; i++) {
+        if (!tmpsel->right || tmpsel->right->left != tmpsel) {
+          if (offscreen)
+            break;
+          return;
+        }
+        tmpsel = tmpsel->right;
+        if (tmpsel == next)
+          offscreen = 1;
+      }
+      sel = tmpsel;
+      if (offscreen) {
+        curr = next;
+        calcoffsets();
+      }
+      break;
+    }
   case XK_KP_Right:
     if (text[cursor] != '\0') {
       cursor = nextrune(+1);
@@ -848,7 +893,7 @@ static void setup(void) {
     } else {
       x = dmx;
       y = topbar ? dmy : wa.height - mh - dmy;
-      mw = (dmw>0 ? dmw : wa.width);
+      mw = (dmw > 0 ? dmw : wa.width);
     }
   }
   inputw = mw / 3; /* input width: ~33% of monitor width */
@@ -862,10 +907,15 @@ static void setup(void) {
   swa.event_mask = ExposureMask | KeyPressMask | VisibilityChangeMask;
 
   swa.event_mask = ExposureMask | KeyPressMask | VisibilityChangeMask;
-  win = XCreateWindow(dpy, root, x, y, mw, mh, 0, depth, CopyFromParent, visual,
+  win = XCreateWindow(dpy, root, x, y, mw, mh, border_width, depth,
+                      CopyFromParent, visual,
                       CWOverrideRedirect | CWBackPixel | CWBorderPixel |
                           CWColormap | CWEventMask,
                       &swa);
+
+  if (border_width)
+    XSetWindowBorder(dpy, win, scheme[SchemeSel][ColBg].pixel);
+
   XSetClassHint(dpy, win, &ch);
 
   /* input methods */
@@ -915,9 +965,9 @@ int main(int argc, char *argv[]) {
       centered = 1;
     else if (!strcmp(argv[i], "-F")) /* grabs keyboard before reading stdin */
       fuzzy = 0;
-    else if (!strcmp(argv[i], "-i")) { /* case-insensitive item matching */
-      fstrncmp = strncasecmp;
-      fstrstr = cistrstr;
+    else if (!strcmp(argv[i], "-s")) { /* case-sensitive item matching */
+      fstrncmp = strncmp;
+      fstrstr = strstr;
     } else if (i + 1 == argc)
       usage();
     /* these options take one argument */
@@ -958,6 +1008,8 @@ int main(int argc, char *argv[]) {
       colors[SchemeSelHighlight][ColFg] = argv[++i];
     else if (!strcmp(argv[i], "-w")) /* embedding window id */
       embed = argv[++i];
+    else if (!strcmp(argv[i], "-bw"))
+      border_width = atoi(argv[++i]); /* border width */
     else
       usage();
 
