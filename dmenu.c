@@ -53,7 +53,7 @@ static int bh, mw, mh;
 static int dmx = 15; /* put dmenu at this x offset */
 static int dmy = 10; /* put dmenu at this y offset (measured from the bottom if
                         topbar is 0) */
-static unsigned int dmw = 2372; /* make dmenu this wide */
+static unsigned int dmw = 2530; /* make dmenu this wide */
 static int inputw = 0, promptw;
 static int lrpad; /* sum of left and right padding */
 static size_t cursor;
